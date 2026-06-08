@@ -183,6 +183,93 @@ def get_leaderboard_html(sort_by="⭐ Overall"):
     """
 
 
+def search_pickles(name_query="", brand_query=""):
+    name_q = (name_query or "").strip()
+    brand_q = (brand_query or "").strip()
+
+    if not name_q and not brand_q:
+        return """
+        <div class="lb-empty">
+            <div style="font-size:3rem;margin-bottom:12px;">🔍</div>
+            <p style="margin:0;color:#6b7280;font-size:0.95rem;">
+                Type a pickle name or brand above to search.
+            </p>
+        </div>
+        """
+
+    conn = sqlite3.connect(DB_PATH)
+    df = pd.read_sql_query(
+        """
+        SELECT
+            pickle_name,
+            COALESCE(NULLIF(TRIM(brand), ''), '—') AS brand,
+            ROUND(AVG(CAST(overall     AS REAL)), 1) AS avg_overall,
+            ROUND(AVG(CAST(crunchiness AS REAL)), 1) AS avg_crunch,
+            ROUND(AVG(CAST(sourness    AS REAL)), 1) AS avg_sour,
+            ROUND(AVG(CAST(garlic      AS REAL)), 1) AS avg_garlic,
+            COUNT(*)                                  AS review_count
+        FROM reviews
+        WHERE (:name = '' OR LOWER(pickle_name) LIKE '%' || LOWER(:name) || '%')
+          AND (:brand = '' OR LOWER(COALESCE(brand, '')) LIKE '%' || LOWER(:brand) || '%')
+        GROUP BY pickle_name, brand
+        ORDER BY avg_overall DESC
+        """,
+        conn,
+        params={"name": name_q, "brand": brand_q},
+    )
+    conn.close()
+
+    if df.empty:
+        return """
+        <div class="lb-empty">
+            <div style="font-size:3rem;margin-bottom:12px;">🥒</div>
+            <p style="margin:0;color:#6b7280;font-size:0.95rem;">
+                No pickles matched your search. Try a different name or brand.
+            </p>
+        </div>
+        """
+
+    count = len(df)
+    label = f'{count} result{"s" if count != 1 else ""}'
+
+    rows_html = ""
+    for _, row in df.iterrows():
+        n = int(row["review_count"])
+        review_label = f'{n} {"review" if n == 1 else "reviews"}'
+        rows_html += f"""
+        <tr class="lb-row">
+            <td class="lb-name"><span class="pickle-pill">{row['pickle_name']}</span></td>
+            <td class="lb-brand">{row['brand']}</td>
+            <td class="lb-score">{_score_bar(row['avg_overall'])}</td>
+            <td class="lb-score">{_score_bar(row['avg_crunch'])}</td>
+            <td class="lb-score">{_score_bar(row['avg_sour'])}</td>
+            <td class="lb-score">{_score_bar(row['avg_garlic'])}</td>
+            <td><span class="review-badge">{review_label}</span></td>
+        </tr>
+        """
+
+    return f"""
+    <p style="font-size:0.82rem;color:#6b7280;margin:0 0 10px;font-weight:600;
+              text-transform:uppercase;letter-spacing:0.8px;">{label}</p>
+    <div class="lb-wrapper">
+        <table class="lb-table">
+            <thead>
+                <tr>
+                    <th>🥒 Pickle</th>
+                    <th>Brand</th>
+                    <th>⭐ Overall</th>
+                    <th>🔊 Crunch</th>
+                    <th>😬 Sour</th>
+                    <th>🧄 Garlic</th>
+                    <th>Reviews</th>
+                </tr>
+            </thead>
+            <tbody>{rows_html}</tbody>
+        </table>
+    </div>
+    """
+
+
 def get_recent_html():
     conn = sqlite3.connect(DB_PATH)
     df = pd.read_sql_query(
@@ -833,6 +920,24 @@ with gr.Blocks(theme=gr.themes.Soft(), css=CSS, title="Pickldd 🥒") as demo:
             gr.HTML('<div class="lb-section-title">📋 Recent Reviews</div>')
             recent_out = gr.HTML(value=get_recent_html)
 
+        # ── Tab 3: Search ────────────────────────────────────────────────
+        with gr.Tab("🔍 Search"):
+
+            with gr.Group(elem_classes="sort-card"):
+                with gr.Row(equal_height=True):
+                    search_name = gr.Textbox(
+                        label="Pickle Name",
+                        placeholder="e.g. Claussen, Spear, Dill…",
+                        scale=2,
+                    )
+                    search_brand = gr.Textbox(
+                        label="Brand",
+                        placeholder="e.g. Vlasic, Bubbies…",
+                        scale=1,
+                    )
+
+            search_out = gr.HTML(value=search_pickles)
+
     # ── Event wiring ─────────────────────────────────────────────────────
 
     submit_btn.click(
@@ -851,6 +956,18 @@ with gr.Blocks(theme=gr.themes.Soft(), css=CSS, title="Pickldd 🥒") as demo:
         fn=lambda s: (get_leaderboard_html(s), get_recent_html()),
         inputs=[sort_dd],
         outputs=[leaderboard_out, recent_out],
+    )
+
+    search_name.input(
+        fn=search_pickles,
+        inputs=[search_name, search_brand],
+        outputs=[search_out],
+    )
+
+    search_brand.input(
+        fn=search_pickles,
+        inputs=[search_name, search_brand],
+        outputs=[search_out],
     )
 
 

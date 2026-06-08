@@ -183,6 +183,54 @@ def get_leaderboard_html(sort_by="⭐ Overall"):
     """
 
 
+def get_analytics():
+    conn = sqlite3.connect(DB_PATH)
+    row = conn.execute("""
+        SELECT
+            COUNT(*)                                  AS total_reviews,
+            ROUND(AVG(CAST(crunchiness AS REAL)), 1)  AS avg_crunch,
+            ROUND(AVG(CAST(sourness    AS REAL)), 1)  AS avg_sour,
+            ROUND(AVG(CAST(garlic      AS REAL)), 1)  AS avg_garlic
+        FROM reviews
+    """).fetchone()
+
+    top_rated = conn.execute("""
+        SELECT pickle_name, COALESCE(NULLIF(TRIM(brand),''),'') AS brand,
+               ROUND(AVG(CAST(overall AS REAL)), 1) AS avg_overall
+        FROM reviews
+        GROUP BY pickle_name, brand
+        ORDER BY avg_overall DESC
+        LIMIT 1
+    """).fetchone()
+
+    most_reviewed = conn.execute("""
+        SELECT pickle_name, COALESCE(NULLIF(TRIM(brand),''),'') AS brand,
+               COUNT(*) AS cnt
+        FROM reviews
+        GROUP BY pickle_name, brand
+        ORDER BY cnt DESC
+        LIMIT 1
+    """).fetchone()
+
+    conn.close()
+
+    total        = int(row[0]) if row[0] else 0
+    avg_crunch   = float(row[1]) if row[1] is not None else 0.0
+    avg_sour     = float(row[2]) if row[2] is not None else 0.0
+    avg_garlic   = float(row[3]) if row[3] is not None else 0.0
+
+    def _pickle_label(r):
+        if not r:
+            return "—"
+        name, brand, score = r
+        return f"{name} ({brand})" if brand else name
+
+    highest_rated  = _pickle_label(top_rated)
+    most_rev_label = _pickle_label(most_reviewed)
+
+    return total, highest_rated, most_rev_label, avg_crunch, avg_sour, avg_garlic
+
+
 def search_pickles(name_query="", brand_query=""):
     name_q = (name_query or "").strip()
     brand_q = (brand_query or "").strip()
@@ -920,7 +968,46 @@ with gr.Blocks(theme=gr.themes.Soft(), css=CSS, title="Pickldd 🥒") as demo:
             gr.HTML('<div class="lb-section-title">📋 Recent Reviews</div>')
             recent_out = gr.HTML(value=get_recent_html)
 
-        # ── Tab 3: Search ────────────────────────────────────────────────
+        # ── Tab 3: Analytics ─────────────────────────────────────────────
+        with gr.Tab("📊 Analytics"):
+
+            with gr.Row():
+                analytics_refresh = gr.Button("🔄 Refresh", variant="secondary", scale=0)
+
+            with gr.Row():
+                stat_total = gr.Number(
+                    label="Total Reviews",
+                    interactive=False,
+                    precision=0,
+                )
+                stat_highest = gr.Textbox(
+                    label="Highest Rated Pickle",
+                    interactive=False,
+                )
+                stat_most_rev = gr.Textbox(
+                    label="Most Reviewed Pickle",
+                    interactive=False,
+                )
+
+            with gr.Row():
+                stat_crunch = gr.Number(
+                    label="Avg Crunchiness",
+                    interactive=False,
+                    precision=1,
+                )
+                stat_sour = gr.Number(
+                    label="Avg Sourness",
+                    interactive=False,
+                    precision=1,
+                )
+                stat_garlic = gr.Number(
+                    label="Avg Garlic Level",
+                    interactive=False,
+                    precision=1,
+                )
+
+        # ── Tab 4: Search ────────────────────────────────────────────────
+
         with gr.Tab("🔍 Search"):
 
             with gr.Group(elem_classes="sort-card"):
@@ -940,11 +1027,13 @@ with gr.Blocks(theme=gr.themes.Soft(), css=CSS, title="Pickldd 🥒") as demo:
 
     # ── Event wiring ─────────────────────────────────────────────────────
 
+    _analytics_outputs = [stat_total, stat_highest, stat_most_rev, stat_crunch, stat_sour, stat_garlic]
+
     submit_btn.click(
         fn=submit_review,
         inputs=[pickle_name, brand, overall, crunchiness, sourness, garlic, review_text, photo],
         outputs=[status_msg, leaderboard_out],
-    )
+    ).then(fn=get_analytics, outputs=_analytics_outputs)
 
     sort_dd.change(
         fn=get_leaderboard_html,
@@ -969,6 +1058,10 @@ with gr.Blocks(theme=gr.themes.Soft(), css=CSS, title="Pickldd 🥒") as demo:
         inputs=[search_name, search_brand],
         outputs=[search_out],
     )
+
+    analytics_refresh.click(fn=get_analytics, outputs=_analytics_outputs)
+
+    demo.load(fn=get_analytics, outputs=_analytics_outputs)
 
 
 from fastapi import FastAPI

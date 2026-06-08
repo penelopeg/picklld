@@ -16,6 +16,11 @@ try:
 except ImportError:
     _GEMINI_OK = False
 
+try:
+    import PIL.Image as _PILImage
+except ImportError:
+    _PILImage = None
+
 DB_PATH = "pickldd.db"
 UPLOADS_DIR = "uploads"
 
@@ -523,6 +528,92 @@ def generate_sommelier(pickle_choice):
     return _render_sommelier_html(pickle_name, brand_key, len(df), data)
 
 
+# ── Photo Analysis ────────────────────────────────────────────────────────────
+
+_VISION_PROMPT = """\
+You are a pickle product expert examining a photo of a pickle jar or pickle product.
+
+Study the image carefully and respond with ONLY a JSON object — no markdown, no extra text:
+{
+  "brand":         "Brand name read from the label, or 'Not visible' if unreadable",
+  "style":         "Pickle style (e.g. Kosher Dill, Bread & Butter, Spicy, Garlic Dill, Polish, Cornichon, etc.)",
+  "description":   "1-2 sentences describing what you see in the image",
+  "flavor_profile":"Expected flavor characteristics based on the visible style, color, brine, and any spices"
+}
+"""
+
+
+def _scan_placeholder():
+    return """
+    <div class="lb-empty">
+        <div style="font-size:3rem;margin-bottom:12px;">📸</div>
+        <p style="margin:0;color:#6b7280;font-size:0.95rem;">
+            Upload a pickle jar photo and click <strong>Analyze Jar</strong>.
+        </p>
+    </div>
+    """
+
+
+def _render_photo_analysis_html(data):
+    brand         = data.get("brand", "—")
+    style         = data.get("style", "—")
+    description   = data.get("description", "")
+    flavor_profile = data.get("flavor_profile", "")
+
+    return f"""
+    <div class="scan-result">
+        <div class="scan-header">
+            <span class="scan-title">🔍 Jar Analysis</span>
+        </div>
+        <div class="scan-pills">
+            <div class="scan-pill">
+                <span class="scan-pill-label">🏷️ Brand</span>
+                <span class="scan-pill-value">{brand}</span>
+            </div>
+            <div class="scan-pill">
+                <span class="scan-pill-label">🥒 Style</span>
+                <span class="scan-pill-value">{style}</span>
+            </div>
+        </div>
+        <div class="scan-block">
+            <div class="scan-block-label">👁️ What I See</div>
+            <div class="scan-block-body">{description}</div>
+        </div>
+        <div class="scan-block">
+            <div class="scan-block-label">🎭 Likely Flavor Profile</div>
+            <div class="scan-block-body">{flavor_profile}</div>
+        </div>
+    </div>
+    """
+
+
+def analyze_pickle_photo(image_path):
+    if image_path is None:
+        return _scan_placeholder()
+
+    if not _GEMINI_OK:
+        return (
+            '<div class="som-error">⚠️ <strong>GEMINI_API_KEY</strong> is not set. '
+            'Get a free key at <em>aistudio.google.com</em> and restart the app.</div>'
+        )
+
+    if _PILImage is None:
+        return '<div class="som-error">⚠️ Pillow is required: <code>pip install Pillow</code></div>'
+
+    try:
+        img      = _PILImage.open(image_path)
+        model    = genai.GenerativeModel("gemini-1.5-flash")
+        response = model.generate_content([_VISION_PROMPT, img])
+        text     = response.text.strip()
+        text     = re.sub(r"^```(?:json)?\s*\n?", "", text)
+        text     = re.sub(r"\n?```\s*$", "", text)
+        data     = json.loads(text)
+    except Exception as exc:
+        return f'<div class="som-error">⚠️ Analysis failed: {exc}</div>'
+
+    return _render_photo_analysis_html(data)
+
+
 init_db()
 
 
@@ -1020,6 +1111,79 @@ input[type="range"] {
 
     .tab-nav button { padding: 9px 16px !important; font-size: 0.87rem !important; }
     .som-grid { grid-template-columns: 1fr; }
+    .scan-pills { flex-direction: column; }
+}
+
+/* ── Photo scan result ── */
+.scan-result {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 20px 22px;
+    box-shadow: var(--sh-sm);
+    height: 100%;
+    box-sizing: border-box;
+}
+
+.scan-header { margin-bottom: 16px; }
+
+.scan-title {
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--pkl-mid);
+}
+
+.scan-pills {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.scan-pill {
+    flex: 1;
+    min-width: 120px;
+    background: var(--pkl-pale);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    padding: 10px 14px;
+}
+
+.scan-pill-label {
+    display: block;
+    font-size: 0.67rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--muted);
+    margin-bottom: 4px;
+}
+
+.scan-pill-value {
+    display: block;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--pkl-dark);
+}
+
+.scan-block { margin-bottom: 14px; }
+.scan-block:last-child { margin-bottom: 0; }
+
+.scan-block-label {
+    font-size: 0.67rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--muted);
+    margin-bottom: 5px;
+}
+
+.scan-block-body {
+    font-size: 0.87rem;
+    color: var(--text);
+    line-height: 1.6;
 }
 
 /* ── Pickle Sommelier ── */
@@ -1193,7 +1357,24 @@ with gr.Blocks(theme=gr.themes.Soft(), css=CSS, title="Pickldd 🥒") as demo:
                 lines=1,
             )
 
-        # ── Tab 2: Leaderboard ───────────────────────────────────────────
+        # ── Tab 2: Scan a Jar ────────────────────────────────────────────
+        with gr.Tab("📸 Scan a Jar"):
+
+            with gr.Row(equal_height=True):
+                with gr.Column(scale=1):
+                    scan_image = gr.Image(
+                        label="Pickle Jar Photo",
+                        type="filepath",
+                        sources=["upload", "webcam"],
+                    )
+                    scan_btn = gr.Button(
+                        "🔍 Analyze Jar",
+                        variant="primary",
+                    )
+                with gr.Column(scale=1):
+                    scan_out = gr.HTML(value=_scan_placeholder)
+
+        # ── Tab 3: Leaderboard ──────────────────────────────────────────
         with gr.Tab("🏆 Leaderboard"):
 
             with gr.Group(elem_classes="sort-card"):
@@ -1327,16 +1508,23 @@ with gr.Blocks(theme=gr.themes.Soft(), css=CSS, title="Pickldd 🥒") as demo:
 
     som_btn.click(fn=generate_sommelier, inputs=[som_dropdown], outputs=[som_out])
 
+    scan_btn.click(fn=analyze_pickle_photo, inputs=[scan_image], outputs=[scan_out])
+
     demo.load(fn=get_analytics, outputs=_analytics_outputs)
 
 
-from fastapi import FastAPI
-import uvicorn
-from tidewave.fastapi import Tidewave
-
-fastapi_app = FastAPI()
-Tidewave().install(fastapi_app)
-fastapi_app = gr.mount_gradio_app(fastapi_app, demo, path="/")
+try:
+    from fastapi import FastAPI
+    import uvicorn
+    from tidewave.fastapi import Tidewave
+    _fastapi_app = FastAPI()
+    Tidewave().install(_fastapi_app)
+    app = gr.mount_gradio_app(_fastapi_app, demo, path="/")
+except ImportError:
+    app = None
 
 if __name__ == "__main__":
-    uvicorn.run(fastapi_app, host="0.0.0.0", port=7860)
+    if app is not None and not os.environ.get("SPACE_ID"):
+        uvicorn.run(app, host="0.0.0.0", port=7860)
+    else:
+        demo.launch()

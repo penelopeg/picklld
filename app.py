@@ -2,8 +2,19 @@ import gradio as gr
 import sqlite3
 import os
 import shutil
+import json
+import re
 from datetime import datetime
 import pandas as pd
+
+try:
+    import google.generativeai as genai
+    _GEMINI_KEY = os.environ.get("GEMINI_API_KEY", "")
+    if _GEMINI_KEY:
+        genai.configure(api_key=_GEMINI_KEY)
+    _GEMINI_OK = bool(_GEMINI_KEY)
+except ImportError:
+    _GEMINI_OK = False
 
 DB_PATH = "pickldd.db"
 UPLOADS_DIR = "uploads"
@@ -346,6 +357,170 @@ def get_recent_html():
         """
 
     return f'<div class="reviews-grid">{cards}</div>'
+
+
+# ── Pickle Sommelier ─────────────────────────────────────────────────────────
+
+_SOMMELIER_PROMPT = """\
+You are the Pickle Sommelier — a refined expert in pickle culture, fermentation, and brine alchemy.
+
+Analyze the following pickle product and craft a sommelier-style tasting profile drawing from the \
+community review data provided.
+
+PICKLE: {pickle_name}
+BRAND: {brand_display}
+TOTAL REVIEWS: {review_count}
+
+AVERAGE SCORES (out of 10):
+  Overall:     {avg_overall}
+  Crunchiness: {avg_crunch}
+  Sourness:    {avg_sour}
+  Garlic:      {avg_garlic}
+
+COMMUNITY REVIEW NOTES:
+{reviews_section}
+
+Respond with a JSON object containing exactly these keys:
+{{
+  "flavor_summary":    "2-3 sentences on the overall flavor character and brine profile",
+  "crunch_description":"1-2 vivid sentences on texture, snap, and structural integrity",
+  "best_uses":         ["use case 1", "use case 2", "use case 3", "use case 4"],
+  "similar_styles":    ["similar pickle style 1", "similar pickle style 2", "similar pickle style 3"],
+  "tasting_notes":     "2-3 playful sentences written in wine-sommelier language applied absurdly to pickles"
+}}
+
+Return only the JSON object — no markdown fences, no extra text.
+"""
+
+
+def get_pickle_choices():
+    df = _query_pickle_profiles()
+    if df.empty:
+        return []
+    choices = []
+    for _, row in df.iterrows():
+        b = row["brand"]
+        label = f"{row['pickle_name']} — {b}" if b != "—" else row["pickle_name"]
+        value = f"{row['pickle_name']}|||{b}"
+        choices.append((label, value))
+    return choices
+
+
+def _som_placeholder():
+    return """
+    <div class="lb-empty">
+        <div style="font-size:3rem;margin-bottom:12px;">🍷</div>
+        <p style="margin:0;color:#6b7280;font-size:0.95rem;">
+            Select a pickle above and consult the Sommelier for an AI-powered tasting profile.
+        </p>
+    </div>
+    """
+
+
+def _render_sommelier_html(pickle_name, brand, review_count, data):
+    brand_display = brand if brand != "—" else ""
+    brand_span = f'<span class="som-brand">{brand_display} &middot; </span>' if brand_display else ""
+    n = review_count
+    rev_label = f'{n} review{"s" if n != 1 else ""}'
+
+    uses_html    = "".join(f'<span class="som-tag">{u}</span>' for u in data.get("best_uses", []))
+    similar_html = "".join(f'<span class="som-tag som-tag-alt">{s}</span>' for s in data.get("similar_styles", []))
+
+    return f"""
+    <div class="sommelier-profile">
+        <div class="som-header">
+            <span class="som-icon">🍷</span>
+            <div>
+                <div class="som-name">{pickle_name}</div>
+                <div class="som-meta">{brand_span}<span>Based on {rev_label}</span></div>
+            </div>
+        </div>
+        <div class="som-grid">
+            <div class="som-card">
+                <div class="som-card-title">🎭 Flavor Profile</div>
+                <p>{data.get("flavor_summary", "")}</p>
+            </div>
+            <div class="som-card">
+                <div class="som-card-title">🔊 Crunch Report</div>
+                <p>{data.get("crunch_description", "")}</p>
+            </div>
+            <div class="som-card som-full">
+                <div class="som-card-title">🥂 Tasting Notes</div>
+                <p class="som-notes">{data.get("tasting_notes", "")}</p>
+            </div>
+            <div class="som-card">
+                <div class="som-card-title">🥪 Best Uses</div>
+                <div class="som-tags">{uses_html}</div>
+            </div>
+            <div class="som-card">
+                <div class="som-card-title">🥒 Similar Styles</div>
+                <div class="som-tags">{similar_html}</div>
+            </div>
+        </div>
+    </div>
+    """
+
+
+def generate_sommelier(pickle_choice):
+    if not pickle_choice:
+        return _som_placeholder()
+
+    if not _GEMINI_OK:
+        return (
+            '<div class="som-error">⚠️ <strong>GEMINI_API_KEY</strong> environment variable is not set. '
+            'Get a free key at <em>aistudio.google.com</em> and restart the app.</div>'
+        )
+
+    parts = pickle_choice.split("|||", 1)
+    pickle_name = parts[0]
+    brand_key   = parts[1] if len(parts) > 1 else "—"
+
+    conn = sqlite3.connect(DB_PATH)
+    df = pd.read_sql_query(
+        """
+        SELECT overall, crunchiness, sourness, garlic, review_text
+        FROM reviews
+        WHERE LOWER(TRIM(pickle_name))        = LOWER(TRIM(:name))
+          AND LOWER(TRIM(COALESCE(brand,''))) = LOWER(TRIM(:brand))
+        """,
+        conn,
+        params={"name": pickle_name, "brand": "" if brand_key == "—" else brand_key},
+    )
+    conn.close()
+
+    if df.empty:
+        return '<div class="som-error">No reviews found for this pickle.</div>'
+
+    avg_overall = round(float(df["overall"].mean()), 1)
+    avg_crunch  = round(float(df["crunchiness"].mean()), 1)
+    avg_sour    = round(float(df["sourness"].mean()), 1)
+    avg_garlic  = round(float(df["garlic"].mean()), 1)
+
+    texts = [str(t).strip() for t in df["review_text"].tolist() if t and str(t).strip()]
+    reviews_section = "\n".join(f'• "{t}"' for t in texts) if texts else "No written notes submitted."
+
+    prompt = _SOMMELIER_PROMPT.format(
+        pickle_name=pickle_name,
+        brand_display=brand_key if brand_key != "—" else "Unknown brand",
+        review_count=len(df),
+        avg_overall=avg_overall,
+        avg_crunch=avg_crunch,
+        avg_sour=avg_sour,
+        avg_garlic=avg_garlic,
+        reviews_section=reviews_section,
+    )
+
+    try:
+        model    = genai.GenerativeModel("gemini-1.5-flash")
+        response = model.generate_content(prompt)
+        text     = response.text.strip()
+        text     = re.sub(r"^```(?:json)?\s*\n?", "", text)
+        text     = re.sub(r"\n?```\s*$", "", text)
+        data     = json.loads(text)
+    except Exception as exc:
+        return f'<div class="som-error">⚠️ Sommelier is unavailable right now: {exc}</div>'
+
+    return _render_sommelier_html(pickle_name, brand_key, len(df), data)
 
 
 init_db()
@@ -844,6 +1019,98 @@ input[type="range"] {
     #submit-btn { font-size: 1rem !important; }
 
     .tab-nav button { padding: 9px 16px !important; font-size: 0.87rem !important; }
+    .som-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Pickle Sommelier ── */
+.sommelier-profile {
+    background: linear-gradient(160deg, #0c1f05 0%, #1a3d0a 60%, #2e7012 100%);
+    border-radius: var(--r-lg);
+    padding: 28px;
+    box-shadow: var(--sh-lg);
+}
+
+.som-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 22px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid rgba(255,255,255,0.11);
+}
+
+.som-icon { font-size: 2.4rem; line-height: 1; }
+
+.som-name {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #d4f582;
+    letter-spacing: -0.4px;
+    line-height: 1.2;
+}
+
+.som-meta { font-size: 0.8rem; color: rgba(255,255,255,0.55); margin-top: 4px; }
+.som-brand { color: rgba(255,255,255,0.7); }
+
+.som-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.som-card {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: var(--r-md);
+    padding: 16px 18px;
+}
+
+.som-full { grid-column: 1 / -1; }
+
+.som-card-title {
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1.1px;
+    color: #a8e063;
+    margin-bottom: 10px;
+}
+
+.som-card p {
+    font-size: 0.87rem;
+    color: rgba(255,255,255,0.82);
+    line-height: 1.65;
+    margin: 0;
+}
+
+.som-notes { font-style: italic !important; color: rgba(255,255,255,0.9) !important; }
+
+.som-tags { display: flex; flex-wrap: wrap; gap: 7px; }
+
+.som-tag {
+    background: rgba(168,224,99,0.14);
+    border: 1px solid rgba(168,224,99,0.28);
+    color: #d4f582;
+    padding: 4px 12px;
+    border-radius: 100px;
+    font-size: 0.77rem;
+    font-weight: 600;
+}
+
+.som-tag-alt {
+    background: rgba(245,158,11,0.12);
+    border-color: rgba(245,158,11,0.25);
+    color: #fcd34d;
+}
+
+.som-error {
+    padding: 18px 20px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: var(--r-md);
+    color: #dc2626;
+    font-size: 0.88rem;
+    line-height: 1.5;
 }
 """
 
@@ -945,7 +1212,26 @@ with gr.Blocks(theme=gr.themes.Soft(), css=CSS, title="Pickldd 🥒") as demo:
             gr.HTML('<div class="lb-section-title">📋 Recent Reviews</div>')
             recent_out = gr.HTML(value=get_recent_html)
 
-        # ── Tab 3: Analytics ─────────────────────────────────────────────
+        # ── Tab 3: Sommelier ─────────────────────────────────────────────
+        with gr.Tab("🍷 Sommelier"):
+
+            with gr.Group(elem_classes="sort-card"):
+                with gr.Row(equal_height=True):
+                    som_dropdown = gr.Dropdown(
+                        choices=get_pickle_choices(),
+                        label="Select a Pickle",
+                        scale=3,
+                        container=False,
+                    )
+                    som_btn = gr.Button(
+                        "✨ Consult the Sommelier",
+                        variant="primary",
+                        scale=1,
+                    )
+
+            som_out = gr.HTML(value=_som_placeholder)
+
+        # ── Tab 4: Analytics ─────────────────────────────────────────────
         with gr.Tab("📊 Analytics"):
 
             with gr.Row():
@@ -1010,7 +1296,8 @@ with gr.Blocks(theme=gr.themes.Soft(), css=CSS, title="Pickldd 🥒") as demo:
         fn=submit_review,
         inputs=[pickle_name, brand, overall, crunchiness, sourness, garlic, review_text, photo],
         outputs=[status_msg, leaderboard_out],
-    ).then(fn=get_analytics, outputs=_analytics_outputs)
+    ).then(fn=get_analytics, outputs=_analytics_outputs
+    ).then(fn=get_pickle_choices, outputs=[som_dropdown])
 
     sort_dd.change(
         fn=get_leaderboard_html,
@@ -1037,6 +1324,8 @@ with gr.Blocks(theme=gr.themes.Soft(), css=CSS, title="Pickldd 🥒") as demo:
     )
 
     analytics_refresh.click(fn=get_analytics, outputs=_analytics_outputs)
+
+    som_btn.click(fn=generate_sommelier, inputs=[som_dropdown], outputs=[som_out])
 
     demo.load(fn=get_analytics, outputs=_analytics_outputs)
 

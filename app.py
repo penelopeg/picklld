@@ -79,7 +79,8 @@ _SORT_COLS = {
 }
 
 
-def _query_leaderboard(sort_by="⭐ Overall"):
+def _query_pickle_profiles(sort_by=None, name_filter="", brand_filter=""):
+    """Aggregated profile per (pickle_name, brand) product, optionally filtered and sorted."""
     conn = sqlite3.connect(DB_PATH)
     df = pd.read_sql_query(
         """
@@ -92,15 +93,25 @@ def _query_leaderboard(sort_by="⭐ Overall"):
             ROUND(AVG(CAST(garlic      AS REAL)), 1) AS avg_garlic,
             COUNT(*)                                  AS review_count
         FROM reviews
-        GROUP BY pickle_name, brand
+        WHERE (:name  = '' OR LOWER(pickle_name)        LIKE '%' || LOWER(:name)  || '%')
+          AND (:brand = '' OR LOWER(COALESCE(brand,'')) LIKE '%' || LOWER(:brand) || '%')
+        GROUP BY LOWER(TRIM(pickle_name)), LOWER(TRIM(COALESCE(brand, '')))
         """,
         conn,
+        params={"name": name_filter or "", "brand": brand_filter or ""},
     )
     conn.close()
     if df.empty:
         return df
     sort_col = _SORT_COLS.get(sort_by, "avg_overall")
     df = df.sort_values(sort_col, ascending=False).reset_index(drop=True)
+    return df
+
+
+def _query_leaderboard(sort_by="⭐ Overall"):
+    df = _query_pickle_profiles(sort_by=sort_by)
+    if df.empty:
+        return df
     df.insert(0, "rank", range(1, len(df) + 1))
     return df
 
@@ -184,6 +195,8 @@ def get_leaderboard_html(sort_by="⭐ Overall"):
 
 
 def get_analytics():
+    profiles = _query_pickle_profiles()
+
     conn = sqlite3.connect(DB_PATH)
     row = conn.execute("""
         SELECT
@@ -193,40 +206,24 @@ def get_analytics():
             ROUND(AVG(CAST(garlic      AS REAL)), 1)  AS avg_garlic
         FROM reviews
     """).fetchone()
-
-    top_rated = conn.execute("""
-        SELECT pickle_name, COALESCE(NULLIF(TRIM(brand),''),'') AS brand,
-               ROUND(AVG(CAST(overall AS REAL)), 1) AS avg_overall
-        FROM reviews
-        GROUP BY pickle_name, brand
-        ORDER BY avg_overall DESC
-        LIMIT 1
-    """).fetchone()
-
-    most_reviewed = conn.execute("""
-        SELECT pickle_name, COALESCE(NULLIF(TRIM(brand),''),'') AS brand,
-               COUNT(*) AS cnt
-        FROM reviews
-        GROUP BY pickle_name, brand
-        ORDER BY cnt DESC
-        LIMIT 1
-    """).fetchone()
-
     conn.close()
 
-    total        = int(row[0]) if row[0] else 0
-    avg_crunch   = float(row[1]) if row[1] is not None else 0.0
-    avg_sour     = float(row[2]) if row[2] is not None else 0.0
-    avg_garlic   = float(row[3]) if row[3] is not None else 0.0
+    total      = int(row[0])   if row[0]       else 0
+    avg_crunch = float(row[1]) if row[1] is not None else 0.0
+    avg_sour   = float(row[2]) if row[2] is not None else 0.0
+    avg_garlic = float(row[3]) if row[3] is not None else 0.0
 
-    def _pickle_label(r):
-        if not r:
-            return "—"
-        name, brand, score = r
-        return f"{name} ({brand})" if brand else name
+    def _label(r):
+        b = r["brand"]
+        return f"{r['pickle_name']} ({b})" if b != "—" else r["pickle_name"]
 
-    highest_rated  = _pickle_label(top_rated)
-    most_rev_label = _pickle_label(most_reviewed)
+    if profiles.empty:
+        return total, "—", "—", avg_crunch, avg_sour, avg_garlic
+
+    highest_rated  = _label(profiles.iloc[0])
+    most_rev_label = _label(
+        profiles.sort_values("review_count", ascending=False).iloc[0]
+    )
 
     return total, highest_rated, most_rev_label, avg_crunch, avg_sour, avg_garlic
 
@@ -245,27 +242,7 @@ def search_pickles(name_query="", brand_query=""):
         </div>
         """
 
-    conn = sqlite3.connect(DB_PATH)
-    df = pd.read_sql_query(
-        """
-        SELECT
-            pickle_name,
-            COALESCE(NULLIF(TRIM(brand), ''), '—') AS brand,
-            ROUND(AVG(CAST(overall     AS REAL)), 1) AS avg_overall,
-            ROUND(AVG(CAST(crunchiness AS REAL)), 1) AS avg_crunch,
-            ROUND(AVG(CAST(sourness    AS REAL)), 1) AS avg_sour,
-            ROUND(AVG(CAST(garlic      AS REAL)), 1) AS avg_garlic,
-            COUNT(*)                                  AS review_count
-        FROM reviews
-        WHERE (:name = '' OR LOWER(pickle_name) LIKE '%' || LOWER(:name) || '%')
-          AND (:brand = '' OR LOWER(COALESCE(brand, '')) LIKE '%' || LOWER(:brand) || '%')
-        GROUP BY pickle_name, brand
-        ORDER BY avg_overall DESC
-        """,
-        conn,
-        params={"name": name_q, "brand": brand_q},
-    )
-    conn.close()
+    df = _query_pickle_profiles(name_filter=name_q, brand_filter=brand_q)
 
     if df.empty:
         return """

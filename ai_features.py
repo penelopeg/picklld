@@ -25,6 +25,10 @@ except ImportError:
 from db import DB_PATH, _query_pickle_profiles
 
 _TEXT_MODEL   = "Qwen/Qwen2.5-3B-Instruct"  # 3 B — featherless-ai
+_TEXT_FALLBACKS = [
+    "google/gemma-3-4b-it",
+    "meta-llama/Llama-3.2-3B-Instruct",
+]
 _VISION_MODEL = "google/gemma-3-4b-it"       # 4 B vision — featherless-ai
 
 _SOMMELIER_SYSTEM = (
@@ -199,19 +203,26 @@ def generate_sommelier(pickle_choice):
         reviews_section = reviews_section,
     )
 
-    try:
-        response = _client_text.chat.completions.create(
-            model    = _TEXT_MODEL,
-            messages = [
-                {"role": "system", "content": _SOMMELIER_SYSTEM},
-                {"role": "user",   "content": user_msg},
-            ],
-            max_tokens = 600,
-            temperature = 0.7,
-        )
-        data = _parse_json(response.choices[0].message.content)
-    except Exception as exc:
-        return f'<div class="som-error">⚠️ Sommelier is unavailable: {exc}</div>'
+    messages = [
+        {"role": "system", "content": _SOMMELIER_SYSTEM},
+        {"role": "user",   "content": user_msg},
+    ]
+    last_exc = None
+    data = None
+    for model in [_TEXT_MODEL] + _TEXT_FALLBACKS:
+        try:
+            response = _client_text.chat.completions.create(
+                model       = model,
+                messages    = messages,
+                max_tokens  = 600,
+                temperature = 0.7,
+            )
+            data = _parse_json(response.choices[0].message.content)
+            break
+        except Exception as exc:
+            last_exc = exc
+    if data is None:
+        return f'<div class="som-error">⚠️ Sommelier is unavailable: {last_exc}</div>'
 
     return _render_sommelier_html(pickle_name, brand_key, len(df), data)
 

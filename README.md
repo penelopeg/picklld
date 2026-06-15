@@ -20,7 +20,7 @@ tags:
 
 # Pickldd 🥒 — Pickle Rater
 
-The internet's most *serious* pickle review platform. Rate pickles by crunchiness, sourness, garlic level, and spice. The AI Pickle Sommelier writes tasting notes. Scan a jar photo to auto-detect brand and style.
+The internet's most *serious* pickle review platform app. Rate pickles by crunchiness, sourness, garlic level, and spice. The AI Pickle Sommelier writes tasting notes. Scan a jar photo to auto-detect brand and style.
 
 **🔗 Links**
 - 🚀 [Live Space](https://huggingface.co/spaces/build-small-hackathon/picklld)

@@ -190,9 +190,10 @@ def get_recent_reviews_df(limit=20):
 def get_top_pickles_df(n=8):
     df = _query_pickle_profiles()
     if df.empty:
-        return pd.DataFrame({"Pickle": [], "Avg Score": []})
+        return pd.DataFrame({"Pickle": [], "Avg Score": [], "Theme": []})
     top = df.head(n).copy()
     top["Pickle"] = top.apply(
         lambda r: r["pickle_name"] + (f" ({r['brand']})" if r["brand"] != "—" else ""), axis=1
     )
-    return top[["Pickle", "avg_overall"]].rename(columns={"avg_overall": "Avg Score"})
+    top["Theme"] = "Pickle"
+    return top[["Pickle", "avg_overall", "Theme"]].rename(columns={"avg_overall": "Avg Score"})

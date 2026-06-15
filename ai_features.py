@@ -82,7 +82,7 @@ def som_placeholder():
     return """
     <div class="lb-empty">
         <div style="font-size:3rem;margin-bottom:12px;">🍷</div>
-        <p style="margin:0;color:#6b7280;font-size:0.95rem;">
+        <p style="margin:0;color:var(--muted);font-size:0.95rem;">
             Select a pickle above and click <strong>Consult the Sommelier</strong>.
         </p>
     </div>
@@ -93,7 +93,7 @@ def scan_placeholder():
     return """
     <div class="lb-empty">
         <div style="font-size:3rem;margin-bottom:12px;">📸</div>
-        <p style="margin:0;color:#6b7280;font-size:0.95rem;">
+        <p style="margin:0;color:var(--muted);font-size:0.95rem;">
             Upload a pickle jar photo and click <strong>Analyze Jar</strong>.
         </p>
     </div>
@@ -250,7 +250,7 @@ def _render_photo_analysis_html(data):
             <div class="scan-block-label">🎭 Flavor Profile</div>
             <div class="scan-block-body">{flavor_profile}</div>
         </div>
-        <p style="font-size:0.82rem;color:#6b7280;margin:14px 0 0;padding-top:12px;border-top:1px solid #e5e7eb;">
+        <p style="font-size:0.82rem;color:var(--muted);margin:14px 0 0;padding-top:12px;border-top:1px solid var(--row-border);">
             💡 Fields pre-filled in <strong>Rate a Pickle</strong> — switch tabs to review it!
         </p>
     </div>

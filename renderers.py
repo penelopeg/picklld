@@ -3,10 +3,10 @@ from db import _query_leaderboard, _query_pickle_profiles, get_recent_reviews_df
 
 def _score_bar(val):
     pct   = int((float(val) / 10) * 100)
-    color = "#52a81e" if float(val) >= 7 else "#f59e0b" if float(val) >= 4 else "#ef4444"
+    color = "var(--score-good)" if float(val) >= 7 else "var(--score-warn)" if float(val) >= 4 else "var(--score-bad)"
     return (
         f'<span style="display:inline-flex;align-items:center;gap:6px;">'
-        f'<span style="background:#e5e7eb;border-radius:4px;height:6px;width:50px;'
+        f'<span style="background:var(--score-track);border-radius:4px;height:6px;width:50px;'
         f'display:inline-block;vertical-align:middle;">'
         f'<span style="background:{color};border-radius:4px;height:6px;width:{pct}%;display:block;"></span>'
         f'</span><span style="font-weight:700;color:{color};min-width:18px;font-size:0.85rem;">{val}</span>'
@@ -16,21 +16,15 @@ def _score_bar(val):
 
 def _buy_badge(pct):
     pct    = int(pct) if pct is not None else 0
-    color  = "#15803d" if pct >= 70 else "#b45309" if pct >= 40 else "#dc2626"
-    bg     = "#dcfce7" if pct >= 70 else "#fef3c7" if pct >= 40 else "#fee2e2"
-    border = "#86efac" if pct >= 70 else "#fcd34d" if pct >= 40 else "#fca5a5"
-    return (
-        f'<span style="background:{bg};color:{color};border:1px solid {border};'
-        f'font-size:0.78rem;font-weight:700;padding:3px 10px;border-radius:100px;white-space:nowrap;">'
-        f'{pct}%</span>'
-    )
+    state  = "good" if pct >= 70 else "warn" if pct >= 40 else "bad"
+    return f'<span class="buy-pct buy-pct-{state}">{pct}%</span>'
 
 
 _LB_EMPTY = """
 <div class="lb-empty">
     <div style="font-size:4rem;margin-bottom:12px;">🥒</div>
-    <h3 style="margin:0 0 8px;font-size:1.2rem;color:#1a2e0e;font-weight:700;">No pickles ranked yet!</h3>
-    <p style="margin:0;color:#6b7280;font-size:0.95rem;">Be the first to rate a pickle and claim the top spot. 🏆</p>
+    <h3 style="margin:0 0 8px;font-size:1.2rem;color:var(--text);font-weight:700;">No pickles ranked yet!</h3>
+    <p style="margin:0;color:var(--muted);font-size:0.95rem;">Be the first to rate a pickle and claim the top spot. 🏆</p>
 </div>
 """
 
@@ -46,7 +40,7 @@ def get_leaderboard_html(sort_by="⭐ Overall"):
     rows_html = ""
     for _, row in df.iterrows():
         rank    = int(row["rank"])
-        medal   = medals.get(rank, f'<span style="color:#9ca3af;font-weight:700;font-size:0.85rem;">{rank}</span>')
+        medal   = medals.get(rank, f'<span style="color:var(--muted);font-weight:700;font-size:0.85rem;">{rank}</span>')
         row_cls = row_classes.get(rank, "")
         n       = int(row["review_count"])
         buy_pct = int(row.get("buy_again_pct", 0) or 0)
@@ -94,7 +88,7 @@ def search_pickles(name_query="", brand_query=""):
         return """
         <div class="lb-empty">
             <div style="font-size:3rem;margin-bottom:12px;">🔍</div>
-            <p style="margin:0;color:#6b7280;font-size:0.95rem;">Type a pickle name or brand above to search.</p>
+            <p style="margin:0;color:var(--muted);font-size:0.95rem;">Type a pickle name or brand above to search.</p>
         </div>
         """
 
@@ -104,7 +98,7 @@ def search_pickles(name_query="", brand_query=""):
         return """
         <div class="lb-empty">
             <div style="font-size:3rem;margin-bottom:12px;">🤷</div>
-            <p style="margin:0;color:#6b7280;font-size:0.95rem;">No pickles matched. Try a different name or brand.</p>
+            <p style="margin:0;color:var(--muted);font-size:0.95rem;">No pickles matched. Try a different name or brand.</p>
         </div>
         """
 
@@ -127,7 +121,7 @@ def search_pickles(name_query="", brand_query=""):
         """
 
     return f"""
-    <p style="font-size:0.82rem;color:#6b7280;margin:0 0 10px;font-weight:600;
+    <p style="font-size:0.82rem;color:var(--muted);margin:0 0 10px;font-weight:600;
               text-transform:uppercase;letter-spacing:0.8px;">{count} result{"s" if count != 1 else ""}</p>
     <div class="lb-wrapper">
         <table class="lb-table">
@@ -155,7 +149,7 @@ def get_recent_html():
         return """
         <div class="lb-empty" style="border-style:dashed;">
             <div style="font-size:3rem;margin-bottom:12px;">🥒</div>
-            <p style="margin:0;color:#6b7280;font-size:0.95rem;">No reviews yet — go rate some pickles!</p>
+            <p style="margin:0;color:var(--muted);font-size:0.95rem;">No reviews yet — go rate some pickles!</p>
         </div>
         """
 
@@ -211,14 +205,14 @@ def get_analytics_html():
         return """
         <div class="lb-empty">
             <div style="font-size:4rem;margin-bottom:12px;">📊</div>
-            <h3 style="margin:0 0 8px;font-size:1.2rem;color:#1a2e0e;font-weight:700;">No data yet!</h3>
-            <p style="margin:0;color:#6b7280;font-size:0.95rem;">Submit some pickle reviews to see analytics here.</p>
+            <h3 style="margin:0 0 8px;font-size:1.2rem;color:var(--text);font-weight:700;">No data yet!</h3>
+            <p style="margin:0;color:var(--muted);font-size:0.95rem;">Submit some pickle reviews to see analytics here.</p>
         </div>
         """
 
-    buy_color  = "#15803d" if buy_pct >= 70 else "#b45309" if buy_pct >= 40 else "#dc2626"
+    buy_color  = "var(--positive-text)" if buy_pct >= 70 else "var(--warning-text)" if buy_pct >= 40 else "var(--danger-text)"
 
-    def _card(icon, value, label, color="#1a2e0e"):
+    def _card(icon, value, label, color="var(--stat-value)"):
         return (
             f'<div class="stat-card">'
             f'<div class="stat-icon">{icon}</div>'

@@ -45,6 +45,55 @@ def submit_review(pickle_name_v, brand_v, overall_v, crunchiness_v, sourness_v,
     )
 
 
+PICKLE_THEME = gr.themes.Soft(
+    primary_hue=gr.themes.colors.green,
+    secondary_hue=gr.themes.colors.lime,
+    neutral_hue=gr.themes.colors.zinc,
+).set(
+    color_accent="*primary_600",
+    color_accent_soft="*primary_50",
+    color_accent_soft_dark="#15231a",
+    border_color_accent="*primary_400",
+    border_color_accent_dark="#86d64a",
+    input_border_color_focus="*primary_500",
+    input_border_color_focus_dark="#86d64a",
+    input_shadow_focus="0 0 0 3px rgba(82,168,30,0.20)",
+    input_shadow_focus_dark="0 0 0 3px rgba(168,224,99,0.18)",
+    button_primary_background_fill="*primary_600",
+    button_primary_background_fill_dark="#3f8e22",
+    button_primary_background_fill_hover="*primary_500",
+    button_primary_background_fill_hover_dark="#52a81e",
+    button_primary_border_color="*primary_600",
+    button_primary_border_color_dark="#3f8e22",
+    button_secondary_background_fill_hover="#edf7e2",
+    button_secondary_background_fill_hover_dark="#15231a",
+    button_secondary_border_color_hover="*primary_300",
+    button_secondary_border_color_hover_dark="#86d64a",
+    checkbox_background_color_selected="*primary_600",
+    checkbox_background_color_selected_dark="#3f8e22",
+    checkbox_border_color_focus="*primary_500",
+    checkbox_border_color_focus_dark="#86d64a",
+    checkbox_border_color_selected="*primary_600",
+    checkbox_border_color_selected_dark="#3f8e22",
+    checkbox_label_background_fill_selected="*primary_600",
+    checkbox_label_background_fill_selected_dark="#3f8e22",
+    checkbox_label_text_color_selected="white",
+    checkbox_label_text_color_selected_dark="white",
+    link_text_color="*primary_700",
+    link_text_color_active="*primary_700",
+    link_text_color_hover="*primary_800",
+    link_text_color_visited="*primary_700",
+    link_text_color_dark="#a8e063",
+    link_text_color_active_dark="#a8e063",
+    link_text_color_hover_dark="#d4f582",
+    link_text_color_visited_dark="#86d64a",
+    slider_color="*primary_600",
+    slider_color_dark="#86d64a",
+    table_row_focus="*primary_50",
+    table_row_focus_dark="#15231a",
+)
+
+
 CSS = """
 /* ── Design tokens ── */
 :root {
@@ -54,31 +103,313 @@ CSS = """
     --pkl-light:  #a8e063;
     --pkl-pale:   #edf7e2;
     --pkl-brine:  #f4fbed;
+    --accent:     #2e7012;
     --gold:       #f59e0b;
     --silver:     #94a3b8;
     --bronze:     #b45309;
     --surface:    #f5faf0;
     --card-bg:    #ffffff;
+    --panel-bg:   #f8fcf3;
+    --input-bg:   #ffffff;
+    --input-border: rgba(82,168,30,0.28);
+    --focus-ring: rgba(82,168,30,0.22);
     --border:     rgba(82,168,30,0.18);
+    --row-border: #f0f4ec;
+    --section-rule: rgba(82,168,30,0.25);
+    --score-track: #e5e7eb;
+    --score-good: #52a81e;
+    --score-warn: #f59e0b;
+    --score-bad:  #ef4444;
     --text:       #1a2e0e;
     --muted:      #6b7280;
+    --chip-bg:    #edf7e2;
+    --chip-text:  #1a3d0a;
+    --stat-value: #1a3d0a;
+    --table-head-bg: linear-gradient(135deg, #0f2405 0%, #1a3d0a 50%, #2e7012 100%);
+    --rank-gold-bg:   #fffdf0;
+    --rank-silver-bg: #f9fafb;
+    --rank-bronze-bg: #fff8f0;
+    --positive-bg:     #dcfce7;
+    --positive-text:   #15803d;
+    --positive-border: #86efac;
+    --warning-bg:      #fef3c7;
+    --warning-text:    #b45309;
+    --warning-border:  #fcd34d;
+    --danger-bg:       #fee2e2;
+    --danger-text:     #dc2626;
+    --danger-border:   #fca5a5;
+    --error-bg:        #fef2f2;
+    --error-border:    #fecaca;
+    --error-text:      #dc2626;
     --r-sm:       10px;
     --r-md:       16px;
     --r-lg:       24px;
     --sh-sm:      0 1px 3px rgba(0,0,0,0.07), 0 2px 8px rgba(0,0,0,0.04);
     --sh-md:      0 4px 12px rgba(0,0,0,0.09), 0 8px 24px rgba(0,0,0,0.05);
     --sh-lg:      0 8px 32px rgba(0,0,0,0.11), 0 16px 48px rgba(0,0,0,0.06);
+    --color-accent: var(--pkl-mid);
+    --color-accent-soft: var(--pkl-pale);
+    --border-color-accent: var(--pkl-bright);
+    --input-border-color-focus: var(--pkl-bright);
+    --input-shadow-focus: 0 0 0 3px var(--focus-ring);
+    --button-primary-background-fill: var(--pkl-mid);
+    --button-primary-background-fill-hover: var(--pkl-bright);
+    --button-primary-border-color: var(--pkl-mid);
+    --button-primary-border-color-hover: var(--pkl-bright);
+    --button-secondary-background-fill-hover: var(--pkl-pale);
+    --button-secondary-border-color-hover: var(--pkl-bright);
+    --checkbox-background-color-selected: var(--pkl-mid);
+    --checkbox-border-color-focus: var(--pkl-bright);
+    --checkbox-border-color-selected: var(--pkl-mid);
+    --checkbox-label-background-fill-selected: var(--pkl-mid);
+    --checkbox-label-text-color-selected: #ffffff;
+    --link-text-color: var(--pkl-mid);
+    --link-text-color-active: var(--pkl-mid);
+    --link-text-color-hover: var(--pkl-dark);
+    --link-text-color-visited: var(--pkl-mid);
+    --slider-color: var(--pkl-mid);
+    --table-row-focus: var(--pkl-pale);
+    color-scheme: light;
+}
+
+html.dark,
+body.dark,
+.dark,
+[data-theme="dark"] {
+    --pkl-dark:   #163109;
+    --pkl-mid:    #3f8e22;
+    --pkl-bright: #86d64a;
+    --pkl-light:  #c8f58a;
+    --pkl-pale:   #132019;
+    --pkl-brine:  #182a1d;
+    --accent:     #a8e063;
+    --surface:    #070d09;
+    --card-bg:    #0d1510;
+    --panel-bg:   #111c14;
+    --input-bg:   #090f0b;
+    --input-border: rgba(168,224,99,0.26);
+    --focus-ring: rgba(168,224,99,0.20);
+    --border:     rgba(168,224,99,0.18);
+    --row-border: rgba(230,248,208,0.10);
+    --section-rule: rgba(168,224,99,0.26);
+    --score-track: #223027;
+    --score-good: #a8e063;
+    --score-warn: #fbbf24;
+    --score-bad:  #fb7185;
+    --text:       #f1f8eb;
+    --muted:      #a7b2a2;
+    --chip-bg:    #15231a;
+    --chip-text:  #e6f8d0;
+    --stat-value: #d4f582;
+    --table-head-bg: linear-gradient(135deg, #071008 0%, #102414 56%, #1d4d25 100%);
+    --rank-gold-bg:   rgba(245,158,11,0.14);
+    --rank-silver-bg: rgba(148,163,184,0.12);
+    --rank-bronze-bg: rgba(180,83,9,0.16);
+    --positive-bg:     #10291b;
+    --positive-text:   #86efac;
+    --positive-border: #2f7a4a;
+    --warning-bg:      #2c220f;
+    --warning-text:    #fcd34d;
+    --warning-border:  #7c5b18;
+    --danger-bg:       #2c1519;
+    --danger-text:     #fca5a5;
+    --danger-border:   #7f2a34;
+    --error-bg:        #2c1519;
+    --error-border:    #7f2a34;
+    --error-text:      #fca5a5;
+    --sh-sm:      0 1px 2px rgba(0,0,0,0.45), 0 8px 22px rgba(0,0,0,0.22);
+    --sh-md:      0 8px 22px rgba(0,0,0,0.38), 0 14px 34px rgba(0,0,0,0.24);
+    --sh-lg:      0 18px 48px rgba(0,0,0,0.48), 0 26px 72px rgba(0,0,0,0.30);
+    --body-background-fill: var(--surface);
+    --body-text-color: var(--text);
+    --body-text-color-subdued: var(--muted);
+    --background-fill-primary: var(--card-bg);
+    --background-fill-secondary: var(--panel-bg);
+    --block-background-fill: var(--card-bg);
+    --block-border-color: var(--border);
+    --input-background-fill: var(--input-bg);
+    --input-border-color: var(--input-border);
+    --button-secondary-background-fill: var(--panel-bg);
+    --button-secondary-text-color: var(--text);
+    --color-accent: var(--pkl-bright);
+    --color-accent-soft: var(--pkl-pale);
+    --border-color-accent: var(--pkl-bright);
+    --input-border-color-focus: var(--pkl-bright);
+    --input-shadow-focus: 0 0 0 3px var(--focus-ring);
+    --button-primary-background-fill: var(--pkl-mid);
+    --button-primary-background-fill-hover: var(--pkl-bright);
+    --button-primary-border-color: var(--pkl-mid);
+    --button-primary-border-color-hover: var(--pkl-bright);
+    --button-secondary-background-fill-hover: var(--chip-bg);
+    --button-secondary-border-color-hover: var(--pkl-bright);
+    --checkbox-background-color-selected: var(--pkl-mid);
+    --checkbox-border-color-focus: var(--pkl-bright);
+    --checkbox-border-color-selected: var(--pkl-mid);
+    --checkbox-label-background-fill-selected: var(--pkl-mid);
+    --checkbox-label-text-color-selected: #ffffff;
+    --link-text-color: var(--pkl-light);
+    --link-text-color-active: var(--pkl-light);
+    --link-text-color-hover: var(--pkl-light);
+    --link-text-color-visited: var(--pkl-bright);
+    --slider-color: var(--pkl-bright);
+    --table-row-focus: var(--pkl-pale);
+    color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --pkl-dark:   #163109;
+        --pkl-mid:    #3f8e22;
+        --pkl-bright: #86d64a;
+        --pkl-light:  #c8f58a;
+        --pkl-pale:   #132019;
+        --pkl-brine:  #182a1d;
+        --accent:     #a8e063;
+        --surface:    #070d09;
+        --card-bg:    #0d1510;
+        --panel-bg:   #111c14;
+        --input-bg:   #090f0b;
+        --input-border: rgba(168,224,99,0.26);
+        --focus-ring: rgba(168,224,99,0.20);
+        --border:     rgba(168,224,99,0.18);
+        --row-border: rgba(230,248,208,0.10);
+        --section-rule: rgba(168,224,99,0.26);
+        --score-track: #223027;
+        --score-good: #a8e063;
+        --score-warn: #fbbf24;
+        --score-bad:  #fb7185;
+        --text:       #f1f8eb;
+        --muted:      #a7b2a2;
+        --chip-bg:    #15231a;
+        --chip-text:  #e6f8d0;
+        --stat-value: #d4f582;
+        --table-head-bg: linear-gradient(135deg, #071008 0%, #102414 56%, #1d4d25 100%);
+        --rank-gold-bg:   rgba(245,158,11,0.14);
+        --rank-silver-bg: rgba(148,163,184,0.12);
+        --rank-bronze-bg: rgba(180,83,9,0.16);
+        --positive-bg:     #10291b;
+        --positive-text:   #86efac;
+        --positive-border: #2f7a4a;
+        --warning-bg:      #2c220f;
+        --warning-text:    #fcd34d;
+        --warning-border:  #7c5b18;
+        --danger-bg:       #2c1519;
+        --danger-text:     #fca5a5;
+        --danger-border:   #7f2a34;
+        --error-bg:        #2c1519;
+        --error-border:    #7f2a34;
+        --error-text:      #fca5a5;
+        --sh-sm:      0 1px 2px rgba(0,0,0,0.45), 0 8px 22px rgba(0,0,0,0.22);
+        --sh-md:      0 8px 22px rgba(0,0,0,0.38), 0 14px 34px rgba(0,0,0,0.24);
+        --sh-lg:      0 18px 48px rgba(0,0,0,0.48), 0 26px 72px rgba(0,0,0,0.30);
+        --body-background-fill: var(--surface);
+        --body-text-color: var(--text);
+        --body-text-color-subdued: var(--muted);
+        --background-fill-primary: var(--card-bg);
+        --background-fill-secondary: var(--panel-bg);
+        --block-background-fill: var(--card-bg);
+        --block-border-color: var(--border);
+        --input-background-fill: var(--input-bg);
+        --input-border-color: var(--input-border);
+        --button-secondary-background-fill: var(--panel-bg);
+        --button-secondary-text-color: var(--text);
+        --color-accent: var(--pkl-bright);
+        --color-accent-soft: var(--pkl-pale);
+        --border-color-accent: var(--pkl-bright);
+        --input-border-color-focus: var(--pkl-bright);
+        --input-shadow-focus: 0 0 0 3px var(--focus-ring);
+        --button-primary-background-fill: var(--pkl-mid);
+        --button-primary-background-fill-hover: var(--pkl-bright);
+        --button-primary-border-color: var(--pkl-mid);
+        --button-primary-border-color-hover: var(--pkl-bright);
+        --button-secondary-background-fill-hover: var(--chip-bg);
+        --button-secondary-border-color-hover: var(--pkl-bright);
+        --checkbox-background-color-selected: var(--pkl-mid);
+        --checkbox-border-color-focus: var(--pkl-bright);
+        --checkbox-border-color-selected: var(--pkl-mid);
+        --checkbox-label-background-fill-selected: var(--pkl-mid);
+        --checkbox-label-text-color-selected: #ffffff;
+        --link-text-color: var(--pkl-light);
+        --link-text-color-active: var(--pkl-light);
+        --link-text-color-hover: var(--pkl-light);
+        --link-text-color-visited: var(--pkl-bright);
+        --slider-color: var(--pkl-bright);
+        --table-row-focus: var(--pkl-pale);
+        color-scheme: dark;
+    }
 }
 
 /* ── Global ── */
 body, .main, .gradio-container {
     background: var(--surface) !important;
+    color: var(--text) !important;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
 }
 .gradio-container {
     max-width: 960px !important;
     margin: 0 auto !important;
     padding: 0 16px 40px !important;
+}
+.gradio-container .block,
+.gradio-container .panel,
+.gradio-container .form,
+.gradio-container .input-container,
+.gradio-container .wrap {
+    background-color: var(--card-bg) !important;
+    border-color: var(--border) !important;
+    color: var(--text) !important;
+}
+.gradio-container input,
+.gradio-container textarea,
+.gradio-container select {
+    background: var(--input-bg) !important;
+    border-color: var(--input-border) !important;
+    color: var(--text) !important;
+}
+.gradio-container input:focus,
+.gradio-container textarea:focus,
+.gradio-container select:focus,
+.gradio-container [tabindex]:focus-visible,
+.gradio-container button:focus-visible {
+    border-color: var(--pkl-bright) !important;
+    box-shadow: 0 0 0 3px var(--focus-ring) !important;
+    outline: none !important;
+}
+.gradio-container input::placeholder,
+.gradio-container textarea::placeholder {
+    color: var(--muted) !important;
+    opacity: 0.78 !important;
+}
+.gradio-container label,
+.gradio-container .block-info,
+.gradio-container [data-testid="block-label"],
+.gradio-container .markdown p {
+    color: var(--muted) !important;
+}
+.gradio-container button.secondary {
+    background: var(--panel-bg) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text) !important;
+}
+.gradio-container button.primary {
+    background: linear-gradient(135deg, var(--pkl-mid) 0%, var(--pkl-bright) 100%) !important;
+    color: #ffffff !important;
+}
+.gradio-container a,
+.gradio-container a:visited {
+    color: var(--accent) !important;
+}
+.gradio-container a:hover {
+    color: var(--pkl-bright) !important;
+}
+.gradio-container input[type="checkbox"],
+.gradio-container input[type="radio"],
+.gradio-container input[type="range"] {
+    accent-color: var(--pkl-bright) !important;
+}
+.gradio-container [aria-selected="true"],
+.gradio-container [aria-checked="true"] {
+    border-color: var(--pkl-bright) !important;
 }
 
 /* ── Hero ── */
@@ -233,7 +564,7 @@ body, .main, .gradio-container {
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 1.2px;
-    color: var(--pkl-mid);
+    color: var(--accent);
     margin: 0 0 16px;
     display: flex;
     align-items: center;
@@ -243,7 +574,7 @@ body, .main, .gradio-container {
     content: '';
     flex: 1;
     height: 1px;
-    background: linear-gradient(to right, rgba(82,168,30,0.25), transparent);
+    background: linear-gradient(to right, var(--section-rule), transparent);
     margin-left: 4px;
 }
 
@@ -292,7 +623,7 @@ input[type="range"] {
     text-align: center !important;
     font-weight: 600 !important;
     font-size: 0.95rem !important;
-    color: var(--pkl-dark) !important;
+    color: var(--text) !important;
     resize: none !important;
     background: transparent !important;
     border: none !important;
@@ -315,7 +646,7 @@ input[type="range"] {
     color: var(--text);
 }
 .lb-table thead tr {
-    background: linear-gradient(135deg, #0f2405 0%, var(--pkl-dark) 50%, var(--pkl-mid) 100%);
+    background: var(--table-head-bg);
 }
 .lb-table thead th {
     color: rgba(255,255,255,0.88);
@@ -328,20 +659,20 @@ input[type="range"] {
     white-space: nowrap;
 }
 .lb-table tbody tr {
-    border-bottom: 1px solid #f0f4ec;
+    border-bottom: 1px solid var(--row-border);
     transition: background 0.15s ease;
 }
 .lb-table tbody tr:last-child { border-bottom: none; }
 .lb-table tbody tr:hover      { background: var(--pkl-brine) !important; }
-.lb-table tbody tr.rank-gold   { background: #fffdf0; }
-.lb-table tbody tr.rank-silver { background: #f9fafb; }
-.lb-table tbody tr.rank-bronze { background: #fff8f0; }
+.lb-table tbody tr.rank-gold   { background: var(--rank-gold-bg); }
+.lb-table tbody tr.rank-silver { background: var(--rank-silver-bg); }
+.lb-table tbody tr.rank-bronze { background: var(--rank-bronze-bg); }
 .lb-table td { padding: 13px 16px; vertical-align: middle; }
 .lb-rank     { font-size: 1.35rem; text-align: center; width: 52px; }
 .pickle-pill {
     display: inline-block;
-    background: var(--pkl-pale);
-    color: var(--pkl-dark);
+    background: var(--chip-bg);
+    color: var(--chip-text);
     font-weight: 600;
     font-size: 0.88rem;
     padding: 4px 13px;
@@ -352,8 +683,8 @@ input[type="range"] {
 .lb-brand  { color: var(--muted); font-size: 0.84rem; }
 .review-badge {
     display: inline-block;
-    background: var(--pkl-pale);
-    color: var(--pkl-mid);
+    background: var(--chip-bg);
+    color: var(--accent);
     font-weight: 700;
     font-size: 0.8rem;
     padding: 4px 12px;
@@ -369,6 +700,8 @@ input[type="range"] {
     border-radius: var(--r-md);
     border: 2px dashed rgba(82,168,30,0.25);
 }
+.lb-empty h3 { color: var(--text) !important; }
+.lb-empty p  { color: var(--muted) !important; }
 .lb-section-title {
     display: flex;
     align-items: center;
@@ -397,8 +730,31 @@ input[type="range"] {
     border-radius: 100px;
     white-space: nowrap;
 }
-.buy-yes { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
-.buy-no  { background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; }
+.buy-yes,
+.buy-pct-good {
+    background: var(--positive-bg);
+    color: var(--positive-text);
+    border: 1px solid var(--positive-border);
+}
+.buy-pct-warn {
+    background: var(--warning-bg);
+    color: var(--warning-text);
+    border: 1px solid var(--warning-border);
+}
+.buy-no,
+.buy-pct-bad {
+    background: var(--danger-bg);
+    color: var(--danger-text);
+    border: 1px solid var(--danger-border);
+}
+.buy-pct {
+    display: inline-block;
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 100px;
+    white-space: nowrap;
+}
 
 /* ── Analytics stat cards ── */
 .stat-grid {
@@ -421,7 +777,7 @@ input[type="range"] {
 .stat-value {
     font-size: 1.55rem;
     font-weight: 900;
-    color: var(--pkl-dark);
+    color: var(--stat-value);
     letter-spacing: -0.8px;
     line-height: 1.1;
     word-break: break-word;
@@ -457,13 +813,13 @@ input[type="range"] {
     gap: 8px;
     margin-bottom: 10px;
 }
-.review-pickle-name { font-weight: 700; font-size: 0.93rem; color: var(--pkl-dark); }
+.review-pickle-name { font-weight: 700; font-size: 0.93rem; color: var(--text); }
 .review-brand       { font-size: 0.78rem; color: var(--muted); margin-left: 4px; }
 .review-date        { font-size: 0.74rem; color: var(--muted); white-space: nowrap; margin-top: 2px; }
 .review-scores      { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .score-chip {
-    background: var(--pkl-pale);
-    color: var(--pkl-dark);
+    background: var(--chip-bg);
+    color: var(--chip-text);
     border: 1px solid rgba(82,168,30,0.2);
     border-radius: 100px;
     font-size: 0.77rem;
@@ -496,13 +852,13 @@ input[type="range"] {
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 1.2px;
-    color: var(--pkl-mid);
+    color: var(--accent);
 }
 .scan-pills    { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
 .scan-pill {
     flex: 1;
     min-width: 110px;
-    background: var(--pkl-pale);
+    background: var(--chip-bg);
     border: 1px solid var(--border);
     border-radius: var(--r-sm);
     padding: 10px 14px;
@@ -516,7 +872,7 @@ input[type="range"] {
     color: var(--muted);
     margin-bottom: 4px;
 }
-.scan-pill-value { display: block; font-size: 0.92rem; font-weight: 700; color: var(--pkl-dark); }
+.scan-pill-value { display: block; font-size: 0.92rem; font-weight: 700; color: var(--text); }
 .scan-block          { margin-bottom: 14px; }
 .scan-block:last-child { margin-bottom: 0; }
 .scan-block-label {
@@ -590,10 +946,10 @@ input[type="range"] {
 .som-tag-alt { background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.25); color: #fcd34d; }
 .som-error {
     padding: 18px 20px;
-    background: #fef2f2;
-    border: 1px solid #fecaca;
+    background: var(--error-bg);
+    border: 1px solid var(--error-border);
     border-radius: var(--r-md);
-    color: #dc2626;
+    color: var(--error-text);
     font-size: 0.88rem;
     line-height: 1.5;
 }
@@ -776,6 +1132,9 @@ with gr.Blocks(title="Pickldd 🥒") as demo:
                 value=get_top_pickles_df,
                 x="Pickle",
                 y="Avg Score",
+                color="Theme",
+                color_map={"Pickle": "#52a81e"},
+                colors_in_legend=[],
                 title="Top Pickles by Overall Rating",
                 x_title="",
                 y_title="Avg Score (out of 10)",
@@ -862,7 +1221,7 @@ try:
     from tidewave.fastapi import Tidewave
     _fastapi_app = FastAPI()
     Tidewave().install(_fastapi_app)
-    app = gr.mount_gradio_app(_fastapi_app, demo, path="/")
+    app = gr.mount_gradio_app(_fastapi_app, demo, path="/", theme=PICKLE_THEME, css=CSS)
 except ImportError:
     app = None
 
@@ -870,4 +1229,4 @@ if __name__ == "__main__":
     if app is not None and not os.environ.get("SPACE_ID"):
         uvicorn.run(app, host="0.0.0.0", port=7860)
     else:
-        demo.launch(theme=gr.themes.Soft(), css=CSS)
+        demo.launch(theme=PICKLE_THEME, css=CSS)

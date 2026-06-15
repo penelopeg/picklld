@@ -1,3 +1,14 @@
+---
+title: Pickldd
+emoji: 🥒
+colorFrom: green
+colorTo: yellow
+sdk: gradio
+sdk_version: "4.0"
+app_file: app.py
+pinned: false
+---
+
 # Pickldd - Pickle Rater
 
 Rate and review pickle products. Track crunchiness, sourness, garlic level, and overall quality. View a live leaderboard sorted by average rating.

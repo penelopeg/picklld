@@ -11,9 +11,10 @@ tags:
   - build-small-hackathon
   - track:thousand-token-wood
   - achievement:offbrand
+  - achievement:tinytitan
   - gradio
   - pickle
-  - gemini
+  - huggingface
   - vision
 ---
 

@@ -630,7 +630,7 @@ input[type="range"] {
 """
 
 
-with gr.Blocks(theme=gr.themes.Soft(), css=CSS, title="Pickldd 🥒") as demo:
+with gr.Blocks(title="Pickldd 🥒") as demo:
 
     gr.HTML("""
     <div class="hero">
@@ -779,7 +779,6 @@ with gr.Blocks(theme=gr.themes.Soft(), css=CSS, title="Pickldd 🥒") as demo:
                 title="Top Pickles by Overall Rating",
                 x_title="",
                 y_title="Avg Score (out of 10)",
-                vertical=False,
                 height=350,
             )
 
@@ -871,4 +870,4 @@ if __name__ == "__main__":
     if app is not None and not os.environ.get("SPACE_ID"):
         uvicorn.run(app, host="0.0.0.0", port=7860)
     else:
-        demo.launch()
+        demo.launch(theme=gr.themes.Soft(), css=CSS)

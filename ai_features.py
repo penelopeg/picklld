@@ -1,17 +1,19 @@
 import os
 import re
 import json
+import base64
+import io
 import sqlite3
 import pandas as pd
 
 try:
-    import google.generativeai as genai
-    _GEMINI_KEY = os.environ.get("GEMINI_API_KEY", "")
-    if _GEMINI_KEY:
-        genai.configure(api_key=_GEMINI_KEY)
-    _GEMINI_OK = bool(_GEMINI_KEY)
+    from huggingface_hub import InferenceClient as _InferenceClient
+    _HF_TOKEN = os.environ.get("HF_TOKEN", "")
+    _client   = _InferenceClient(api_key=_HF_TOKEN or None)
+    _HF_OK    = True
 except ImportError:
-    _GEMINI_OK = False
+    _HF_OK  = False
+    _client = None
 
 try:
     import PIL.Image as _PILImage
@@ -20,67 +22,61 @@ except ImportError:
 
 from db import DB_PATH, _query_pickle_profiles
 
+_TEXT_MODEL   = "Qwen/Qwen2.5-3B-Instruct"   # 3 B params
+_VISION_MODEL = "Qwen/Qwen2-VL-2B-Instruct"  # 2 B params
 
-_SOMMELIER_PROMPT = """\
-You are the Pickle Sommelier — a refined expert in pickle culture, fermentation, and brine alchemy.
+_SOMMELIER_SYSTEM = (
+    "You are the Pickle Sommelier — an expert in pickle culture and brine alchemy. "
+    "Reply ONLY with a valid JSON object, no markdown fences, no extra text."
+)
 
-Analyze this pickle and craft a sommelier-style tasting profile from the community review data.
+_SOMMELIER_USER = """\
+Analyze this pickle and craft a sommelier-style tasting profile from the review data.
 
 PICKLE: {pickle_name}
 BRAND: {brand_display}
-TOTAL REVIEWS: {review_count}
-BUY AGAIN RATE: {buy_again_pct}%
+REVIEWS: {review_count}  |  Buy-again rate: {buy_again_pct}%
+SCORES /10 — Overall: {avg_overall} | Crunch: {avg_crunch} | Sour: {avg_sour} | Garlic: {avg_garlic} | Spice: {avg_spicy}
 
-AVERAGE SCORES (out of 10):
-  Overall:     {avg_overall}
-  Crunchiness: {avg_crunch}
-  Sourness:    {avg_sour}
-  Garlic:      {avg_garlic}
-  Spiciness:   {avg_spicy}
-
-COMMUNITY REVIEW NOTES:
+COMMUNITY NOTES:
 {reviews_section}
 
-Respond with exactly this JSON object:
-{{
-  "flavor_summary":    "2-3 sentences on the overall flavor character and brine profile",
-  "crunch_description":"1-2 vivid sentences on texture, snap, and structural integrity",
-  "best_uses":         ["use case 1", "use case 2", "use case 3", "use case 4"],
-  "similar_styles":    ["similar pickle style 1", "similar pickle style 2", "similar pickle style 3"],
-  "tasting_notes":     "2-3 playful sentences in wine-sommelier language applied absurdly to pickles",
-  "verdict":           "One punchy sentence: should you buy this pickle again?"
-}}
+Return exactly this JSON structure:
+{{"flavor_summary":"2-3 sentences on flavor and brine","crunch_description":"1-2 sentences on texture and snap","best_uses":["use1","use2","use3","use4"],"similar_styles":["style1","style2","style3"],"tasting_notes":"2-3 playful wine-sommelier sentences applied absurdly to pickles","verdict":"One punchy buy-it-or-skip-it sentence"}}"""
 
-Return only the JSON — no markdown fences, no extra text.
-"""
+_VISION_SYSTEM = (
+    "You are a pickle product expert. "
+    "Reply ONLY with a valid JSON object, no markdown fences, no extra text."
+)
 
-_VISION_PROMPT = """\
-You are a pickle product expert examining a photo of a pickle jar.
+_VISION_USER = """\
+Examine this pickle jar photo carefully.
 
-Respond with ONLY a JSON object — no markdown, no extra text:
-{
-  "brand":         "Brand name from the label, or 'Not visible' if unreadable",
-  "pickle_name":   "Full product name from the label (e.g. Kosher Dill Spears, Bread & Butter Chips)",
-  "style":         "Pickle style (Kosher Dill, Bread & Butter, Spicy, Garlic Dill, Polish, Cornichon, etc.)",
-  "description":   "1-2 sentences describing what you see",
-  "flavor_profile":"Expected flavor based on style, color, brine, and visible spices"
-}
-"""
+Return exactly this JSON structure:
+{{"brand":"brand name from the label or Not visible","pickle_name":"full product name from the label","style":"pickle style e.g. Kosher Dill / Bread & Butter / Spicy / Garlic Dill / Polish / Cornichon","description":"1-2 sentences on what you see","flavor_profile":"expected flavor based on the visible style, color, brine, and spices"}}"""
 
 
-def _no_key_html():
+def _parse_json(text):
+    text = text.strip()
+    text = re.sub(r"^```(?:json)?\s*\n?", "", text)
+    text = re.sub(r"\n?```\s*$", "", text)
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        match = re.search(r"\{.*\}", text, re.DOTALL)
+        if match:
+            return json.loads(match.group(0))
+        raise
+
+
+def _no_token_html():
     return (
-        '<div class="som-error">⚠️ <strong>GEMINI_API_KEY</strong> is not set. '
-        'Get a free key at <em>aistudio.google.com</em> and set it before restarting.</div>'
+        '<div class="som-error">⚠️ <strong>HF_TOKEN</strong> is not set. '
+        'Add a free Hugging Face token as a Space secret to enable AI features.</div>'
     )
 
 
-def _parse_gemini_json(text):
-    text = text.strip()
-    text = re.sub(r"^```(?:json)?\s*\n?", "", text)
-    text = re.sub(r"\n?```\s*$",          "", text)
-    return json.loads(text)
-
+# ── Shared placeholder HTML ───────────────────────────────────────────────────
 
 def som_placeholder():
     return """
@@ -104,17 +100,7 @@ def scan_placeholder():
     """
 
 
-def get_pickle_choices():
-    df = _query_pickle_profiles()
-    if df.empty:
-        return []
-    choices = []
-    for _, row in df.iterrows():
-        b     = row["brand"]
-        label = f"{row['pickle_name']} — {b}" if b != "—" else row["pickle_name"]
-        choices.append((label, f"{row['pickle_name']}|||{b}"))
-    return choices
-
+# ── Sommelier ─────────────────────────────────────────────────────────────────
 
 def _render_sommelier_html(pickle_name, brand, review_count, data):
     brand_display = brand if brand != "—" else ""
@@ -123,7 +109,7 @@ def _render_sommelier_html(pickle_name, brand, review_count, data):
     verdict       = data.get("verdict", "")
     verdict_html  = f'<div class="som-verdict">🏆 {verdict}</div>' if verdict else ""
 
-    uses_html    = "".join(f'<span class="som-tag">{u}</span>'         for u in data.get("best_uses",     []))
+    uses_html    = "".join(f'<span class="som-tag">{u}</span>'             for u in data.get("best_uses",     []))
     similar_html = "".join(f'<span class="som-tag som-tag-alt">{s}</span>' for s in data.get("similar_styles", []))
 
     return f"""
@@ -165,8 +151,8 @@ def _render_sommelier_html(pickle_name, brand, review_count, data):
 def generate_sommelier(pickle_choice):
     if not pickle_choice:
         return som_placeholder()
-    if not _GEMINI_OK:
-        return _no_key_html()
+    if not _HF_OK:
+        return _no_token_html()
 
     parts       = pickle_choice.split("|||", 1)
     pickle_name = parts[0]
@@ -193,33 +179,42 @@ def generate_sommelier(pickle_choice):
     avg_sour      = round(float(df["sourness"].mean()),    1)
     avg_garlic    = round(float(df["garlic"].mean()),      1)
     avg_spicy     = round(float(df.get("spiciness", pd.Series([5])).mean()), 1)
-    buy_again_pct = int(round(float(df["buy_again"].mean()) * 100, 0))
+    buy_again_pct = int(round(float(df["buy_again"].mean()) * 100))
 
     texts           = [str(t).strip() for t in df["review_text"].tolist() if t and str(t).strip()]
     reviews_section = "\n".join(f'• "{t}"' for t in texts) if texts else "No written notes submitted."
 
-    prompt = _SOMMELIER_PROMPT.format(
-        pickle_name   = pickle_name,
-        brand_display = brand_key if brand_key != "—" else "Unknown brand",
-        review_count  = len(df),
-        buy_again_pct = buy_again_pct,
-        avg_overall   = avg_overall,
-        avg_crunch    = avg_crunch,
-        avg_sour      = avg_sour,
-        avg_garlic    = avg_garlic,
-        avg_spicy     = avg_spicy,
+    user_msg = _SOMMELIER_USER.format(
+        pickle_name     = pickle_name,
+        brand_display   = brand_key if brand_key != "—" else "Unknown brand",
+        review_count    = len(df),
+        buy_again_pct   = buy_again_pct,
+        avg_overall     = avg_overall,
+        avg_crunch      = avg_crunch,
+        avg_sour        = avg_sour,
+        avg_garlic      = avg_garlic,
+        avg_spicy       = avg_spicy,
         reviews_section = reviews_section,
     )
 
     try:
-        model    = genai.GenerativeModel("gemini-1.5-flash")
-        response = model.generate_content(prompt)
-        data     = _parse_gemini_json(response.text)
+        response = _client.chat.completions.create(
+            model    = _TEXT_MODEL,
+            messages = [
+                {"role": "system", "content": _SOMMELIER_SYSTEM},
+                {"role": "user",   "content": user_msg},
+            ],
+            max_tokens = 600,
+            temperature = 0.7,
+        )
+        data = _parse_json(response.choices[0].message.content)
     except Exception as exc:
         return f'<div class="som-error">⚠️ Sommelier is unavailable: {exc}</div>'
 
     return _render_sommelier_html(pickle_name, brand_key, len(df), data)
 
+
+# ── Photo analysis ────────────────────────────────────────────────────────────
 
 def _render_photo_analysis_html(data):
     brand          = data.get("brand",         "—")
@@ -266,16 +261,30 @@ def analyze_pickle_photo(image_path):
     """Returns (html, detected_name, detected_brand) for scan-to-rate pre-fill."""
     if image_path is None:
         return scan_placeholder(), "", ""
-    if not _GEMINI_OK:
-        return _no_key_html(), "", ""
+    if not _HF_OK:
+        return _no_token_html(), "", ""
     if _PILImage is None:
         return '<div class="som-error">⚠️ Pillow is required: <code>pip install Pillow</code></div>', "", ""
 
     try:
-        img      = _PILImage.open(image_path)
-        model    = genai.GenerativeModel("gemini-1.5-flash")
-        response = model.generate_content([_VISION_PROMPT, img])
-        data     = _parse_gemini_json(response.text)
+        img = _PILImage.open(image_path).convert("RGB")
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=85)
+        b64      = base64.b64encode(buf.getvalue()).decode()
+        data_url = f"data:image/jpeg;base64,{b64}"
+
+        response = _client.chat.completions.create(
+            model    = _VISION_MODEL,
+            messages = [{
+                "role": "user",
+                "content": [
+                    {"type": "image_url", "image_url": {"url": data_url}},
+                    {"type": "text",      "text": f"{_VISION_SYSTEM}\n\n{_VISION_USER}"},
+                ],
+            }],
+            max_tokens = 400,
+        )
+        data = _parse_json(response.choices[0].message.content)
     except Exception as exc:
         return f'<div class="som-error">⚠️ Analysis failed: {exc}</div>', "", ""
 

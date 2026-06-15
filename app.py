@@ -854,6 +854,7 @@ with gr.Blocks(title="Pickldd 🥒") as demo:
     som_btn.click(fn=generate_sommelier, inputs=[som_dropdown], outputs=[som_out])
 
     demo.load(fn=get_analytics_html, outputs=[analytics_out])
+    demo.load(fn=get_pickle_choices, outputs=[som_dropdown])
 
 
 try:
@@ -870,4 +871,4 @@ if __name__ == "__main__":
     if app is not None and not os.environ.get("SPACE_ID"):
         uvicorn.run(app, host="0.0.0.0", port=7860)
     else:
-        demo.launch(theme=gr.themes.Soft(), css=CSS)
+        demo.launch(theme=gr.themes.Soft(), css=CSS, ssr_mode=False)

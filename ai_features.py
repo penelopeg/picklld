@@ -8,12 +8,14 @@ import pandas as pd
 
 try:
     from huggingface_hub import InferenceClient as _InferenceClient
-    _HF_TOKEN = os.environ.get("HF_TOKEN", "")
-    _client   = _InferenceClient(api_key=_HF_TOKEN or None)
-    _HF_OK    = True
+    _HF_TOKEN      = os.environ.get("HF_TOKEN", "")
+    _client_text   = _InferenceClient(provider="featherless-ai", api_key=_HF_TOKEN or None)
+    _client_vision = _InferenceClient(provider="featherless-ai", api_key=_HF_TOKEN or None)
+    _HF_OK         = True
 except ImportError:
-    _HF_OK  = False
-    _client = None
+    _HF_OK         = False
+    _client_text   = None
+    _client_vision = None
 
 try:
     import PIL.Image as _PILImage
@@ -22,8 +24,8 @@ except ImportError:
 
 from db import DB_PATH, _query_pickle_profiles
 
-_TEXT_MODEL   = "Qwen/Qwen2.5-3B-Instruct"   # 3 B params
-_VISION_MODEL = "Qwen/Qwen2-VL-2B-Instruct"  # 2 B params
+_TEXT_MODEL   = "Qwen/Qwen2.5-3B-Instruct"  # 3 B — featherless-ai
+_VISION_MODEL = "google/gemma-3-4b-it"       # 4 B vision — featherless-ai
 
 _SOMMELIER_SYSTEM = (
     "You are the Pickle Sommelier — an expert in pickle culture and brine alchemy. "
@@ -198,7 +200,7 @@ def generate_sommelier(pickle_choice):
     )
 
     try:
-        response = _client.chat.completions.create(
+        response = _client_text.chat.completions.create(
             model    = _TEXT_MODEL,
             messages = [
                 {"role": "system", "content": _SOMMELIER_SYSTEM},
@@ -273,7 +275,7 @@ def analyze_pickle_photo(image_path):
         b64      = base64.b64encode(buf.getvalue()).decode()
         data_url = f"data:image/jpeg;base64,{b64}"
 
-        response = _client.chat.completions.create(
+        response = _client_vision.chat.completions.create(
             model    = _VISION_MODEL,
             messages = [{
                 "role": "user",

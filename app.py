@@ -986,27 +986,49 @@ input[type="range"] {
 """
 
 
-with gr.Blocks(title="Pickldd 🥒") as demo:
+TAB_ICON_JS = """
+() => {
+    const TAB_ICONS = {
+        'Rate':        '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>',
+        'Scan':        '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>',
+        'Leaderboard': '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>',
+        'Sommelier':   '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 22h8"/><path d="M7 10h10"/><path d="M12 15v7"/><path d="M12 15a5 5 0 0 0 5-5c0-2-.5-4-2-8H9c-1.5 4-2 6-2 8a5 5 0 0 0 5 5z"/></svg>',
+        'Analytics':   '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/></svg>',
+        'Search':      '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>',
+    };
+    function injectIcons() {
+        document.querySelectorAll('button[role="tab"]').forEach(btn => {
+            const label = btn.textContent.trim();
+            const svgHtml = TAB_ICONS[label];
+            if (!svgHtml || btn.dataset.iconInjected) return;
+            btn.dataset.iconInjected = '1';
+            btn.style.display = 'flex';
+            btn.style.alignItems = 'center';
+            btn.style.gap = '5px';
+            btn.innerHTML = svgHtml + label;
+        });
+    }
+    const observer = new MutationObserver(injectIcons);
+    observer.observe(document.body, { childList: true, subtree: true });
+    injectIcons();
+}
+"""
+
+with gr.Blocks(title="Pickldd 🥒", js=TAB_ICON_JS) as demo:
 
     gr.HTML("""
     <div class="hero">
         <span class="hero-icon">🥒</span>
         <h1 class="hero-title">Pickl<span class="accent">dd</span></h1>
         <p class="hero-sub">The internet's most <em>serious</em> pickle review platform.</p>
-        <div class="hero-tags">
-            <span class="hero-tag">🧄 Garlic Lovers</span>
-            <span class="hero-tag">🔊 Crunch Seekers</span>
-            <span class="hero-tag">😬 Sour Heads</span>
-            <span class="hero-tag">🛒 Buy Again?</span>
-            <span class="hero-tag">🌶️ Heat Hunters</span>
-        </div>
+
     </div>
     """)
 
     with gr.Tabs():
 
         # ── Tab 1: Rate a Pickle ─────────────────────────────────────────────
-        with gr.Tab("🥒 Rate"):
+        with gr.Tab("Rate"):
 
             with gr.Group(elem_classes="pkl-card"):
                 gr.HTML('<div class="card-section-title">🥒 The Pickle</div>')
@@ -1073,7 +1095,7 @@ with gr.Blocks(title="Pickldd 🥒") as demo:
             )
 
         # ── Tab 2: Scan a Jar ────────────────────────────────────────────────
-        with gr.Tab("📸 Scan"):
+        with gr.Tab("Scan"):
 
             with gr.Row(equal_height=True):
                 with gr.Column(scale=1):
@@ -1087,7 +1109,7 @@ with gr.Blocks(title="Pickldd 🥒") as demo:
                     scan_out = gr.HTML(value=scan_placeholder)
 
         # ── Tab 3: Leaderboard ───────────────────────────────────────────────
-        with gr.Tab("🏆 Leaderboard"):
+        with gr.Tab("Leaderboard"):
 
             with gr.Group(elem_classes="sort-card"):
                 with gr.Row(equal_height=True):
@@ -1106,7 +1128,7 @@ with gr.Blocks(title="Pickldd 🥒") as demo:
             recent_out = gr.HTML(value=get_recent_html)
 
         # ── Tab 4: Sommelier ─────────────────────────────────────────────────
-        with gr.Tab("🍷 Sommelier"):
+        with gr.Tab("Sommelier"):
 
             with gr.Group(elem_classes="sort-card"):
                 with gr.Row(equal_height=True):
@@ -1121,7 +1143,7 @@ with gr.Blocks(title="Pickldd 🥒") as demo:
             som_out = gr.HTML(value=som_placeholder)
 
         # ── Tab 5: Analytics ─────────────────────────────────────────────────
-        with gr.Tab("📊 Analytics"):
+        with gr.Tab("Analytics"):
 
             with gr.Row():
                 analytics_refresh = gr.Button("🔄 Refresh", variant="secondary", scale=0)
@@ -1142,7 +1164,7 @@ with gr.Blocks(title="Pickldd 🥒") as demo:
             )
 
         # ── Tab 6: Search ────────────────────────────────────────────────────
-        with gr.Tab("🔍 Search"):
+        with gr.Tab("Search"):
 
             with gr.Group(elem_classes="sort-card"):
                 with gr.Row(equal_height=True):

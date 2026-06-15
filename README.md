@@ -18,38 +18,39 @@ tags:
   - vision
 ---
 
-# Pickldd - Pickle Rater
+# Pickldd 🥒 — Pickle Rater
 
-Rate and review pickle products. Track crunchiness, sourness, garlic level, and overall quality. View a live leaderboard sorted by average rating.
+The internet's most *serious* pickle review platform. Rate pickles by crunchiness, sourness, garlic level, and spice. The AI Pickle Sommelier writes tasting notes. Scan a jar photo to auto-detect brand and style.
+
+**🔗 Links**
+- 🚀 [Live Space](https://huggingface.co/spaces/build-small-hackathon/picklld)
+- 💻 [GitHub](https://github.com/penelopeg/picklld)
+- 📣 [Social post](https://x.com/penelope_tg/status/2066646172379369775)
+
+## Demo
+
+<video src="https://github.com/penelopeg/picklld/raw/main/demo.webm" controls width="100%"></video>
+
+## AI features (Tiny Titan — all models ≤4B)
+
+| Feature | Model | Params |
+|---|---|---|
+| 🍷 Pickle Sommelier | `Qwen/Qwen2.5-3B-Instruct` | 3B |
+| 📸 Jar photo scan | `google/gemma-3-4b-it` | 4B |
+
+Both served via [HF Inference Providers](https://huggingface.co/docs/inference-providers) (featherless-ai). Requires `HF_TOKEN` set as a Space secret.
 
 ## Setup
 
 **Requirements:** Python 3.9 or later.
 
-1. Clone the repository and enter the project directory:
-
 ```bash
-git clone <repo-url>
-cd pickldd
-```
-
-2. Create and activate a virtual environment:
-
-```bash
+git clone https://github.com/penelopeg/picklld
+cd picklld
 python3 -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-```
-
-3. Install dependencies:
-
-```bash
+source .venv/bin/activate
 pip install -r requirements.txt
-```
-
-## Running the app
-
-```bash
 python app.py
 ```
 
-The app will be available at `http://localhost:7860` by default. The SQLite database (`pickldd.db`) and the `uploads/` folder for photos are created automatically on first run.
+The app runs at `http://localhost:7860`. Set `HF_TOKEN` in your environment to enable AI features.
